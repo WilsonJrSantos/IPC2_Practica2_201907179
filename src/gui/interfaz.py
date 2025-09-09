@@ -155,22 +155,17 @@ class InterfazTurnos:
         """Crea los botones principales de acción."""
         # Botón atender paciente
         atender_btn = ttk.Button(parent, text="Atender Siguiente Paciente",
-                                 command=self._atender_paciente, style='Success.TButton')
+                                command=self._atender_paciente, style='Success.TButton')
         atender_btn.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
-        
-        # Botón generar gráfico
-        grafico_btn = ttk.Button(parent, text="Generar Gráfico",
-                                 command=self._generar_grafico, style='TButton')
-        grafico_btn.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
         
         # Botón ver estadísticas
         stats_btn = ttk.Button(parent, text="Ver Estadísticas",
-                               command=self._mostrar_estadisticas, style='TButton')
+                            command=self._mostrar_estadisticas, style='TButton')
         stats_btn.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
         
         # Botón limpiar cola
         limpiar_btn = ttk.Button(parent, text="Limpiar Cola",
-                                 command=self._limpiar_cola, style='Danger.TButton')
+                                command=self._limpiar_cola, style='Danger.TButton')
         limpiar_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True)
     
     def _crear_area_visualizacion(self, parent):
@@ -212,9 +207,6 @@ class InterfazTurnos:
         self.imagen_label = ttk.Label(visual_frame, text="\nGenere un gráfico para visualizar la cola\n", 
                                       style='TLabel', anchor="center")
         self.imagen_label.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-    
-    # --- El resto de los métodos (_registrar_turno, _atender_paciente, etc.) permanecen iguales ---
-    # (Se omiten por brevedad, no necesitan cambios para la implementación de estilos)
 
     def _registrar_turno(self):
         """Registra un nuevo turno en la cola."""
@@ -243,7 +235,10 @@ class InterfazTurnos:
             self.edad_var.set("")
             self.especialidad_var.set(ESPECIALIDADES[0])
             
+            # Actualiza los paneles de texto
             self._actualizar_display()
+            # (NUEVO) Actualiza el gráfico de forma automática y silenciosa
+            self._generar_grafico(silencioso=True)
             
         except ValueError as e:
             messagebox.showerror("Error", str(e))
@@ -251,21 +246,33 @@ class InterfazTurnos:
             messagebox.showerror("Error", f"Error inesperado: {str(e)}")
 
     def _atender_paciente(self):
-        """Atiende al siguiente paciente en la cola."""
+        """Atiende al siguiente paciente, muestra una ficha y actualiza el gráfico de la cola."""
         try:
-            paciente = self.turno_service.atender_siguiente_paciente()
-            
-            tiempo_atencion = self.turno_service.obtener_tiempo_atencion(paciente.especialidad)
-            tiempo_espera = paciente.tiempo_espera_actual()
+            siguiente_paciente = self.turno_service.ver_siguiente_paciente()
+            if not siguiente_paciente:
+                messagebox.showwarning("Advertencia", MENSAJE_COLA_VACIA)
+                return
+
+            tiempo_espera = siguiente_paciente.tiempo_espera_actual()
+            tiempo_atencion = self.turno_service.obtener_tiempo_atencion(siguiente_paciente.especialidad)
+
+            paciente_atendido = self.turno_service.atender_siguiente_paciente()
             
             mensaje = (f"{MENSAJE_PACIENTE_ATENDIDO}\n\n"
-                       f"Paciente: {paciente.nombre}\n"
-                       f"Edad: {paciente.edad} años\n"
-                       f"Especialidad: {paciente.especialidad}\n"
+                       f"Paciente: {paciente_atendido.nombre}\n"
                        f"Tiempo de espera: {tiempo_espera} minutos\n"
                        f"Tiempo de atención: {tiempo_atencion} minutos")
-            
             messagebox.showinfo("Paciente Atendido", mensaje)
+            
+            if self.graphviz_service.verificar_graphviz_instalado():
+                threading.Thread(
+                    target=self._generar_y_mostrar_ficha, 
+                    args=(paciente_atendido, tiempo_espera, tiempo_atencion),
+                    daemon=True
+                ).start()
+
+            # (MODIFICADO) Llama al gráfico en modo silencioso
+            self._generar_grafico(silencioso=True)
             
             self._actualizar_display()
             
@@ -274,37 +281,43 @@ class InterfazTurnos:
         except Exception as e:
             messagebox.showerror("Error", f"Error al atender paciente: {str(e)}")
 
-    def _generar_grafico(self):
-        """Genera el gráfico visual de la cola."""
+    def _generar_grafico(self, silencioso=False):
+        """
+        (MODIFICADO) Genera el gráfico. Acepta un modo 'silencioso' para evitar pop-ups.
+        """
         try:
-            if not self.turno_service.hay_turnos_pendientes():
-                messagebox.showwarning("Advertencia", MENSAJE_COLA_VACIA)
-                return
-                
             if not self.graphviz_service.verificar_graphviz_instalado():
-                messagebox.showerror("Error", 
-                                     "Graphviz no está instalado o no está en el PATH.\n"
-                                     "Por favor, instale Graphviz para usar esta función.")
+                # Solo muestra error si se presiona el botón manualmente
+                if not silencioso:
+                    messagebox.showerror("Error", 
+                                         "Graphviz no está instalado o no está en el PATH.\n"
+                                         "Por favor, instale Graphviz para usar esta función.")
                 return
             
             def generar_en_hilo():
-                archivo_imagen = self.graphviz_service.generar_grafico_cola(
-                    self.turno_service.cola_turnos)
+                archivo_imagen = self.graphviz_service.generar_grafico_cola(self.turno_service)
                 
                 if archivo_imagen and os.path.exists(archivo_imagen):
-                    self.root.after(0, lambda: self._mostrar_imagen(archivo_imagen))
-                else:
+                    # Pasa el modo silencioso a la función que muestra la imagen
+                    self.root.after(0, self._mostrar_imagen, archivo_imagen, silencioso)
+                elif not silencioso:
                     self.root.after(0, lambda: messagebox.showerror("Error", 
                                       "No se pudo generar el gráfico. Verifique la consola."))
             
             threading.Thread(target=generar_en_hilo, daemon=True).start()
-            messagebox.showinfo("Información", "Generando gráfico, por favor espere...")
+            
+            # Muestra este mensaje solo si el usuario hizo clic en el botón
+            if not silencioso:
+                messagebox.showinfo("Información", "Generando gráfico, por favor espere...")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Error al generar gráfico: {str(e)}")
+            if not silencioso:
+                messagebox.showerror("Error", f"Error al generar gráfico: {str(e)}")
 
-    def _mostrar_imagen(self, archivo_imagen):
-        """Muestra la imagen generada en la interfaz."""
+    def _mostrar_imagen(self, archivo_imagen, silencioso=False):
+        """
+        (MODIFICADO) Muestra la imagen. Evita el pop-up de 'éxito' en modo silencioso.
+        """
         try:
             imagen = Image.open(archivo_imagen)
             
@@ -319,25 +332,120 @@ class InterfazTurnos:
             self.imagen_label.configure(image=foto, text="")
             self.imagen_label.image = foto
             
-            messagebox.showinfo("Éxito", "Gráfico generado correctamente")
+            # Muestra 'éxito' solo si el usuario hizo clic en el botón
+            if not silencioso:
+                messagebox.showinfo("Éxito", "Gráfico generado correctamente")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Error al mostrar imagen: {str(e)}")
+            if not silencioso:
+                messagebox.showerror("Error", f"Error al mostrar imagen: {str(e)}")
+
+    def _generar_y_mostrar_ficha(self, paciente, tiempo_espera, tiempo_atencion):
+        """Función para correr en un hilo que genera la ficha y la muestra."""
+        # Esta función será llamada por _atender_paciente
+        archivo_ficha = self.graphviz_service.generar_ficha_paciente(
+            paciente, tiempo_espera, tiempo_atencion
+        )
+        if archivo_ficha and os.path.exists(archivo_ficha):
+            # Usamos self.root.after para asegurar que la ventana se cree en el hilo principal
+            self.root.after(0, self._ventana_paciente_atendido, archivo_ficha)
+
+    def _ventana_paciente_atendido(self, archivo_imagen):
+        """(NUEVO) Crea una ventana emergente para mostrar la ficha del paciente."""
+        ficha_window = tk.Toplevel(self.root)
+        ficha_window.title("Ficha de Paciente Atendido")
+        ficha_window.configure(bg=COLOR_FONDO)
+        ficha_window.resizable(False, False)
+
+        try:
+            imagen = Image.open(archivo_imagen)
+            foto = ImageTk.PhotoImage(imagen)
+            
+            # Ajustar tamaño de ventana a la imagen
+            ficha_window.geometry(f"{foto.width()+20}x{foto.height()+20}")
+
+            img_label = ttk.Label(ficha_window, image=foto, style="TLabel")
+            img_label.pack(padx=10, pady=10)
+            img_label.image = foto  # Mantener referencia
+        except Exception as e:
+            ficha_window.destroy()
+            print(f"Error al mostrar ficha de paciente: {e}")
+
+    def _limpiar_cola(self):
+        """Limpia la cola y actualiza el gráfico para mostrar que está vacía."""
+        if self.turno_service.hay_turnos_pendientes():
+            respuesta = messagebox.askyesno("Confirmar Limpieza", 
+                                              "¿Está seguro de que desea limpiar toda la cola?\n"
+                                              "Esta acción no se puede deshacer.")
+            if respuesta:
+                self.turno_service.limpiar_turnos()
+                messagebox.showinfo("Información", "La cola ha sido limpiada.")
+                self._actualizar_display()
+                # (MODIFICADO) Llama a generar gráfico en modo silencioso
+                self._generar_grafico(silencioso=True) 
+        else:
+            messagebox.showinfo("Información", "La cola ya está vacía.")
+
+    def _generar_grafico(self, silencioso=False):
+        """
+        (CORREGIDO) Genera el gráfico. Ya no se detiene si la cola está vacía
+        y maneja el modo silencioso para evitar pop-ups.
+        """
+        # (CORREGIDO) El chequeo de cola vacía se eliminó de aquí
+        # para permitir que se genere el gráfico de "Cola Vacía".
+        try:
+            if not self.graphviz_service.verificar_graphviz_instalado():
+                if not silencioso:
+                    messagebox.showerror("Error", 
+                                         "Graphviz no está instalado o no está en el PATH.\n"
+                                         "Por favor, instale Graphviz para usar esta función.")
+                return
+            
+            def generar_en_hilo():
+                # Esta llamada ahora funciona correctamente incluso si la cola está vacía
+                archivo_imagen = self.graphviz_service.generar_grafico_cola(self.turno_service)
+                
+                if archivo_imagen and os.path.exists(archivo_imagen):
+                    self.root.after(0, self._mostrar_imagen, archivo_imagen, silencioso)
+                elif not silencioso:
+                    self.root.after(0, lambda: messagebox.showerror("Error", 
+                                      "No se pudo generar el gráfico. Verifique la consola."))
+            
+            # Muestra este mensaje solo si el usuario hizo clic en el botón
+            if not silencioso:
+                messagebox.showinfo("Información", "Generando gráfico, por favor espere...")
+
+            # Ejecuta la generación en un hilo para no congelar la interfaz
+            threading.Thread(target=generar_en_hilo, daemon=True).start()
+            
+        except Exception as e:
+            if not silencioso:
+                messagebox.showerror("Error", f"Error al generar gráfico: {str(e)}")
 
     def _mostrar_estadisticas(self):
         """Muestra estadísticas detalladas del sistema."""
         try:
             estadisticas = self.turno_service.obtener_estadisticas()
-            self._ventana_estadisticas(estadisticas)
+            
+            # --- LÓGICA RESTAURADA PARA GENERAR GRÁFICO ---
+            archivo_stats = None
+            if self.graphviz_service.verificar_graphviz_instalado() and self.turno_service.hay_turnos_pendientes():
+                # Generar el gráfico solo si hay datos que mostrar
+                archivo_stats = self.graphviz_service.generar_grafico_estadisticas(estadisticas)
+
+            # Se pasa el archivo del gráfico (si se creó) a la ventana
+            self._ventana_estadisticas(estadisticas, archivo_stats)
+            # --- FIN DE LA LÓGICA RESTAURADA ---
+                
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar estadísticas: {str(e)}")
 
-    def _ventana_estadisticas(self, estadisticas):
-        """Crea una ventana separada para mostrar estadísticas."""
+    def _ventana_estadisticas(self, estadisticas, archivo_imagen=None):
+        """Crea una ventana separada para mostrar estadísticas y su gráfico."""
         stats_window = tk.Toplevel(self.root)
         stats_window.title("Estadísticas del Sistema")
-        stats_window.geometry("450x300")
-        stats_window.resizable(False, False)
+        stats_window.geometry("500x600") # Aumentamos el tamaño para el gráfico
+        stats_window.resizable(True, True)
         stats_window.configure(bg=COLOR_FONDO)
         
         main_frame = ttk.Frame(stats_window, style='TFrame')
@@ -347,7 +455,7 @@ class InterfazTurnos:
                   style='Titulo.TLabel').pack(pady=(0, 15))
         
         info_frame = ttk.LabelFrame(main_frame, text="Resumen General", padding=10)
-        info_frame.pack(fill=tk.X, pady=(0, 10))
+        info_frame.pack(fill=tk.X, pady=(0, 10), anchor='n')
         
         total_pacientes = estadisticas.get('total_pacientes', 0)
         tiempo_total = estadisticas.get('tiempo_total_estimado', 0)
@@ -356,7 +464,7 @@ class InterfazTurnos:
         ttk.Label(info_frame, text=f"Tiempo total de espera estimado: {tiempo_total} minutos").pack(anchor=tk.W)
         
         esp_frame = ttk.LabelFrame(main_frame, text="Distribución por Especialidad", padding=10)
-        esp_frame.pack(fill=tk.X)
+        esp_frame.pack(fill=tk.X, pady=(0, 10), anchor='n')
         
         especialidades_stats = estadisticas.get('especialidades', {})
         if especialidades_stats:
@@ -365,6 +473,24 @@ class InterfazTurnos:
                 ttk.Label(esp_frame, text=texto).pack(anchor=tk.W)
         else:
             ttk.Label(esp_frame, text="No hay pacientes en cola.").pack(anchor=tk.W)
+
+        # --- CÓDIGO RESTAURADO PARA MOSTRAR LA IMAGEN ---
+        if archivo_imagen and os.path.exists(archivo_imagen):
+            try:
+                img_frame = ttk.LabelFrame(main_frame, text="Gráfico de Distribución", padding=10)
+                img_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+                imagen = Image.open(archivo_imagen)
+                imagen.thumbnail((450, 400), Image.Resampling.LANCZOS)
+                foto = ImageTk.PhotoImage(imagen)
+                
+                imagen_label = ttk.Label(img_frame, image=foto, style="TLabel")
+                imagen_label.pack(pady=5)
+                imagen_label.image = foto # Mantener referencia
+            except Exception as e:
+                print(f"Error al cargar imagen de estadísticas: {e}")
+                error_label = ttk.Label(main_frame, text="No se pudo cargar el gráfico.", style="TLabel")
+                error_label.pack(pady=10)
 
     def _limpiar_cola(self):
         """Limpia completamente la cola de turnos."""
