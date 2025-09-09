@@ -1,0 +1,13 @@
+"""
+Paquete utils - Contiene utilidades y constantes del sistema.
+"""
+
+from utils.constantes import *
+
+__all__ = [
+    'TIEMPOS_ATENCION', 'ESPECIALIDADES', 'VENTANA_TITULO',
+    'VENTANA_ANCHO', 'VENTANA_ALTO', 'COLOR_FONDO', 'COLOR_PRIMARIO',
+    'FUENTE_TITULO', 'FUENTE_NORMAL', 'MENSAJE_COLA_VACIA',
+    'MENSAJE_PACIENTE_ATENDIDO', 'MENSAJE_ERROR_CAMPOS',
+    'MENSAJE_ERROR_EDAD', 'GRAPHVIZ_FORMATO', 'GRAPHVIZ_ENGINE'
+]

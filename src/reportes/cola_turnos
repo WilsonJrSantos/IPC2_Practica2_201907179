@@ -1,0 +1,9 @@
+// Cola de Turnos Médicos
+digraph TURNOS {
+	graph [fontname="Helvetica,Arial,sans-serif" fontsize=16 label="COLA DE TURNOS MÉDICOS" labelloc=t]
+	node [fillcolor=lightblue fontname="Helvetica,Arial,sans-serif" shape=record style=filled]
+	edge [dir=none]
+	posicion1 [label=<{<b>Turno #1</b> |Paciente: Juan Perez<br align="center"/>Edad: 15 años<br align="center"/>|Especialidad: Medicina General<br align="center"/>Tiempo de atención: 10 min<br align="center"/>|Tiempo total estimado: 10 min<br align="center"/>Tiempo en cola: 0 min<br align="center"/>}>]
+	posicion2 [label=<{<b>Turno #2</b> |Paciente: Mario<br align="center"/>Edad: 2 años<br align="center"/>|Especialidad: Pediatría<br align="center"/>Tiempo de atención: 15 min<br align="center"/>|Tiempo total estimado: 25 min<br align="center"/>Tiempo en cola: 10 min<br align="center"/>}>]
+	posicion1 -> posicion2
+}
