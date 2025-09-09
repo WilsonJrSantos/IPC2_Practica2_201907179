@@ -171,7 +171,7 @@ class GraphvizService:
     
     def limpiar_archivos_generados(self):
         """
-        (MODIFICADO) Borra toda la carpeta de reportes y su contenido.
+        Borra toda la carpeta de reportes y su contenido.
         Esta función solo se llama cuando se cierra la aplicación.
         """
         if os.path.exists(self.reportes_dir):
