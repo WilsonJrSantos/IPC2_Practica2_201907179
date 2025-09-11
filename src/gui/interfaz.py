@@ -50,39 +50,48 @@ class InterfazTurnos:
     def _configurar_estilos(self):
         """Configura los estilos para los widgets de ttk."""
         self.style = ttk.Style(self.root)
-        self.style.theme_use('clam') # Usar un tema que permita personalización
+        self.style.theme_use('clam')
 
-        # Estilo general para Frames y Labels
+        # --- Estilos Generales (sin cambios) ---
         self.style.configure('TFrame', background=COLOR_FONDO)
         self.style.configure('TLabel', background=COLOR_FONDO, foreground="#333", font=FUENTE_NORMAL)
         self.style.configure('Titulo.TLabel', background=COLOR_FONDO, foreground=COLOR_PRIMARIO, font=FUENTE_TITULO)
-        
-        # Estilo para LabelFrame (marcos con título)
         self.style.configure('TLabelFrame', background=COLOR_FONDO, bordercolor=COLOR_PRIMARIO, font=FUENTE_NORMAL)
         self.style.configure('TLabelFrame.Label', background=COLOR_FONDO, foreground=COLOR_PRIMARIO, font=FUENTE_NORMAL)
 
-        # Estilo para Botones
-        self.style.configure('TButton', font=FUENTE_NORMAL, padding=5, borderwidth=0)
+        # --- Jerarquía de Estilos para Botones MEJORADA ---
+
+        # 1. Base para todos los botones: define dimensiones y el EFECTO HOVER UNIFICADO.
+        self.style.configure('TButton', font=FUENTE_NORMAL, padding=6, borderwidth=1, focusthickness=0)
         self.style.map('TButton',
-                       foreground=[('pressed', 'white'), ('active', 'white')],
-                       background=[('pressed', '!disabled', COLOR_SECUNDARIO), ('active', COLOR_SECUNDARIO)])
+                    background=[('active', COLOR_SECUNDARIO)],  # Gris oscuro al pasar el mouse
+                    foreground=[('active', 'white')])           # Texto blanco al pasar el mouse
 
-        self.style.configure('Primary.TButton', background=COLOR_PRIMARIO, foreground='white')
-        self.style.configure('Success.TButton', background=COLOR_EXITO, foreground='white')
-        self.style.configure('Danger.TButton', background=COLOR_ERROR, foreground='white')
+        # 2. Botón Primario (Registrar): Sólido y llamativo.
+        self.style.configure('Primary.TButton', background=COLOR_PRIMARIO, foreground='white', borderwidth=0)
         
-        # Estilo para Combobox
-        self.style.map('TCombobox', fieldbackground=[('readonly', 'white')])
-        self.style.map('TCombobox', selectbackground=[('readonly', COLOR_PRIMARIO)])
-        self.style.map('TCombobox', selectforeground=[('readonly', 'white')])
+        # 3. Botón de Éxito (Atender): Verde sólido para la acción principal positiva.
+        self.style.configure('Success.TButton', background=COLOR_EXITO, foreground='white', borderwidth=0)
 
-        # Estilo para Notebook (pestañas)
+        # 4. Botón Secundario (Estadísticas): Contorno azul, más discreto.
+        self.style.configure('Secondary.TButton', 
+                            foreground=COLOR_PRIMARIO, 
+                            background=COLOR_FONDO, 
+                            bordercolor=COLOR_PRIMARIO)
+
+        # 5. Botón de Peligro (Limpiar, Salir): Contorno rojo para acciones finales.
+        self.style.configure('Danger.TButton', 
+                            foreground=COLOR_ERROR, 
+                            background=COLOR_FONDO, 
+                            bordercolor=COLOR_ERROR)
+
+        # --- Estilos para otros widgets (sin cambios) ---
+        self.style.map('TCombobox', fieldbackground=[('readonly', 'white')], selectbackground=[('readonly', COLOR_PRIMARIO)])
         self.style.configure('TNotebook', background=COLOR_FONDO, borderwidth=0)
-        self.style.configure('TNotebook.Tab', background=COLOR_FONDO, foreground=COLOR_SECUNDARIO,
-                             font=FUENTE_NORMAL, padding=[10, 5], borderwidth=0)
-        self.style.map('TNotebook.Tab',
-                       background=[('selected', COLOR_PRIMARIO)],
-                       foreground=[('selected', 'white')])
+        self.style.configure('TNotebook.Tab', background=COLOR_FONDO, foreground=COLOR_SECUNDARIO, font=FUENTE_NORMAL, padding=[10, 5])
+        self.style.map('TNotebook.Tab', 
+                    background=[('selected', COLOR_PRIMARIO)], 
+                    foreground=[('selected', 'white')])
 
     def _crear_widgets(self):
         """Crea todos los widgets de la interfaz."""
@@ -164,7 +173,11 @@ class InterfazTurnos:
         stats_btn = ttk.Button(parent, text="Ver Estadísticas",
                             command=self._mostrar_estadisticas, style='TButton')
         stats_btn.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
-        
+
+        #Botón para salir, alineado a la derecha.
+        salir_btn = ttk.Button(parent, text="Salir del Programa",
+                                command=self.root.destroy, style='Exit.TButton')
+        salir_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True)
         # Botón limpiar cola
         limpiar_btn = ttk.Button(parent, text="Limpiar Cola",
                                 command=self._limpiar_cola, style='Danger.TButton')
@@ -209,6 +222,71 @@ class InterfazTurnos:
         self.imagen_label = ttk.Label(visual_frame, text="\nGenere un gráfico para visualizar la cola\n", 
                                       style='TLabel', anchor="center")
         self.imagen_label.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+    def _dialogo_confirmacion_atencion(self, paciente):
+        """
+        Crea un diálogo de confirmación modal y personalizado que muestra todos los datos del paciente.
+        Devuelve True si se confirma, False si se cancela.
+        """
+        dialogo = tk.Toplevel(self.root)
+        dialogo.title("Confirmar Atención")
+        dialogo.configure(bg=COLOR_FONDO)
+        dialogo.resizable(False, False)
+        
+        dialogo.transient(self.root)
+        dialogo.grab_set()
+
+        main_frame = ttk.Frame(dialogo, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main_frame, text="¿Desea atender al siguiente paciente?", 
+                font=(FUENTE_NORMAL[0], FUENTE_NORMAL[1], 'bold')).pack(pady=(0, 15))
+        
+        info_frame = ttk.Frame(main_frame)
+        info_frame.pack(fill=tk.X)
+
+        tiempo_espera = self.turno_service.calcular_tiempo_espera_paciente(0)
+        tiempo_atencion = self.turno_service.obtener_tiempo_atencion(paciente.especialidad)
+        tiempo_total = tiempo_espera + tiempo_atencion
+
+        # Se añade la Especialidad a la lista de datos a mostrar
+        labels_info = {
+            "Paciente:": paciente.nombre,
+            "Especialidad:": paciente.especialidad,
+            "Tiempo en Cola:": f"{tiempo_espera} minutos",
+            "Tiempo de Atención:": f"{tiempo_atencion} minutos",
+            "Tiempo Total:": f"{tiempo_total} minutos"
+        }
+
+        row_index = 0
+        for key, value in labels_info.items():
+            ttk.Label(info_frame, text=key, font=(FUENTE_NORMAL[0], FUENTE_NORMAL[1], 'bold')).grid(row=row_index, column=0, sticky=tk.W, pady=2)
+            ttk.Label(info_frame, text=value).grid(row=row_index, column=1, sticky=tk.W, padx=10, pady=2)
+            row_index += 1
+
+        resultado = tk.BooleanVar(value=False)
+
+        def confirmar():
+            resultado.set(True)
+            dialogo.destroy()
+
+        def cancelar():
+            resultado.set(False)
+            dialogo.destroy()
+        
+        button_frame = ttk.Frame(main_frame, padding=(0, 20, 0, 0))
+        button_frame.pack(fill=tk.X)
+        button_frame.columnconfigure((0, 1), weight=1)
+
+        btn_confirmar = ttk.Button(button_frame, text="Confirmar Atención", command=confirmar, style="Success.TButton")
+        btn_confirmar.grid(row=0, column=0, sticky=tk.EW, padx=(0, 5))
+
+        btn_cancelar = ttk.Button(button_frame, text="Cancelar", command=cancelar, style="Danger.TButton")
+        btn_cancelar.grid(row=0, column=1, sticky=tk.EW, padx=(5, 0))
+
+        self.root.wait_window(dialogo)
+        
+        return resultado.get()
 
     def _registrar_turno(self):
         """Registra un nuevo turno en la cola."""
@@ -248,40 +326,33 @@ class InterfazTurnos:
             messagebox.showerror("Error", f"Error inesperado: {str(e)}")
 
     def _atender_paciente(self):
-        """Atiende al siguiente paciente, muestra una ficha y actualiza el gráfico de la cola."""
+        """Verifica si hay pacientes y abre el diálogo de confirmación para atender."""
+        if not self.turno_service.hay_turnos_pendientes():
+            messagebox.showinfo("Cola Vacía", MENSAJE_COLA_VACIA)
+            return
+            
         try:
             siguiente_paciente = self.turno_service.ver_siguiente_paciente()
-            if not siguiente_paciente:
-                messagebox.showwarning("Advertencia", MENSAJE_COLA_VACIA)
-                return
-
-            tiempo_espera = siguiente_paciente.tiempo_espera_actual()
-            tiempo_atencion = self.turno_service.obtener_tiempo_atencion(siguiente_paciente.especialidad)
-
-            paciente_atendido = self.turno_service.atender_siguiente_paciente()
             
-            mensaje = (f"{MENSAJE_PACIENTE_ATENDIDO}\n\n"
-                       f"Paciente: {paciente_atendido.nombre}\n"
-                       f"Tiempo de espera: {tiempo_espera} minutos\n"
-                       f"Tiempo de atención: {tiempo_atencion} minutos")
-            messagebox.showinfo("Paciente Atendido", mensaje)
-            
-            if self.graphviz_service.verificar_graphviz_instalado():
-                threading.Thread(
-                    target=self._generar_y_mostrar_ficha, 
-                    args=(paciente_atendido, tiempo_espera, tiempo_atencion),
-                    daemon=True
-                ).start()
-
-            # (MODIFICADO) Llama al gráfico en modo silencioso
-            self._generar_grafico(silencioso=True)
-            
-            self._actualizar_display()
-            
-        except IndexError:
-            messagebox.showwarning("Advertencia", MENSAJE_COLA_VACIA)
+            # Llama al nuevo diálogo personalizado y espera una respuesta (True o False)
+            if self._dialogo_confirmacion_atencion(siguiente_paciente):
+                # Si la respuesta es True, se procede a atender
+                paciente_atendido = self.turno_service.atender_siguiente_paciente()
+                tiempo_espera = paciente_atendido.tiempo_espera_actual()
+                tiempo_atencion = self.turno_service.obtener_tiempo_atencion(paciente_atendido.especialidad)
+                
+                if self.graphviz_service.verificar_graphviz_instalado():
+                    threading.Thread(
+                        target=self._generar_y_mostrar_ficha, 
+                        args=(paciente_atendido, tiempo_espera, tiempo_atencion),
+                        daemon=True
+                    ).start()
+                
+                self._actualizar_display()
+                self._generar_grafico(silencioso=True)
+                
         except Exception as e:
-            messagebox.showerror("Error", f"Error al atender paciente: {str(e)}")
+            messagebox.showerror("Error", f"No se pudo atender al paciente: {str(e)}")
 
     def _generar_grafico(self, silencioso=False):
         """
@@ -518,38 +589,47 @@ class InterfazTurnos:
         self._actualizar_info_display()
 
     def _actualizar_cola_display(self):
-        """Actualiza la visualización de la cola de turnos."""
+        """Actualiza la visualización de la cola de turnos en el área de texto."""
         self.cola_text.configure(state=tk.NORMAL)
         self.cola_text.delete(1.0, tk.END)
         
         if not self.turno_service.hay_turnos_pendientes():
             self.cola_text.insert(tk.END, MENSAJE_COLA_VACIA)
         else:
-            # Se obtiene el objeto Cola iterable, NO una lista.
             pacientes_en_cola = self.turno_service.obtener_todos_turnos()
-            self.cola_text.insert(tk.END, "COLA DE TURNOS ACTUAL\n", ('titulo',))
-            self.cola_text.insert(tk.END, "=" * 50 + "\n\n")
+            self.cola_text.insert(tk.END, "COLA DE TURNOS ACTUAL\n\n", ('titulo',))
             
-            # Se itera directamente sobre la cola y se usa un contador manual.
             posicion = 0
             for paciente in pacientes_en_cola:
-                # Se pasa la posición (el contador) al método de cálculo.
                 tiempo_espera = self.turno_service.calcular_tiempo_espera_paciente(posicion)
+                tiempo_atencion = self.turno_service.obtener_tiempo_atencion(paciente.especialidad)
+                
+                # --- CÁLCULO DEL TIEMPO TOTAL ESTIMADO ---
+                tiempo_total_estimado = tiempo_espera + tiempo_atencion
                 
                 posicion_texto = "SIGUIENTE" if posicion == 0 else f"Posición {posicion + 1}"
                 tag = 'siguiente' if posicion == 0 else 'normal'
 
-                info_paciente = (
-                    f"[{posicion_texto}] {paciente.nombre} ({paciente.edad} años) - {paciente.especialidad}\n"
-                    f"   └─ Tiempo de espera estimado: {tiempo_espera} min\n\n"
-                )
-                self.cola_text.insert(tk.END, info_paciente, (tag,))
-                posicion += 1 # Se incrementa el contador manualmente.
+                # --- SE AÑADEN TODOS LOS DATOS REQUERIDOS ---
+                # Se muestra el nombre, edad y especialidad
+                self.cola_text.insert(tk.END, f"[{posicion_texto}] ", (tag, 'bold'))
+                self.cola_text.insert(tk.END, f"{paciente.nombre} ({paciente.edad} años) - {paciente.especialidad}\n", (tag,))
+                
+                # Se muestra el desglose de tiempos
+                self.cola_text.insert(tk.END, f"   ├─ Tiempo en cola: {tiempo_espera} min\n", (tag, 'detalle'))
+                self.cola_text.insert(tk.END, f"   ├─ Tiempo de atención: {tiempo_atencion} min\n", (tag, 'detalle'))
+                self.cola_text.insert(tk.END, f"   └─ Tiempo Total Estimado: {tiempo_total_estimado} min\n\n", (tag, 'detalle', 'bold'))
+                
+                posicion += 1
         
+        # Configuración de estilos para el texto
         self.cola_text.tag_config('titulo', font=FUENTE_TITULO, foreground=COLOR_PRIMARIO)
-        self.cola_text.tag_config('siguiente', font=(FUENTE_NORMAL[0], FUENTE_NORMAL[1], 'bold'), foreground=COLOR_EXITO)
-        self.cola_text.tag_config('normal', font=FUENTE_NORMAL)
+        self.cola_text.tag_config('siguiente', font=FUENTE_NORMAL, foreground=COLOR_EXITO)
+        self.cola_text.tag_config('bold', font=(FUENTE_NORMAL[0], FUENTE_NORMAL[1], 'bold'))
+        self.cola_text.tag_config('normal', font=FUENTE_NORMAL, foreground="#333333")
+        self.cola_text.tag_config('detalle', font=FUENTE_NORMAL, foreground="#555555")
         self.cola_text.configure(state=tk.DISABLED)
+
 
     def _actualizar_info_display(self):
         """Actualiza la información general del sistema."""

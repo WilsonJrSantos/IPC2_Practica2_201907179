@@ -49,17 +49,16 @@ class GraphvizService:
 
         dot = Digraph('TURNOS', comment='Cola de Turnos Médicos')
         
-        # --- ATRIBUTOS DE ESTILO MEJORADOS ---
         dot.attr('graph', 
                 label="Cola de Turnos Médicos", 
                 labelloc="t", 
                 fontname="Helvetica", 
                 fontsize='20',
-                rankdir='LR',  # De izquierda a derecha, como una fila
+                rankdir='LR',
                 bgcolor="#f4f4f4",
-                splines='ortho') # Líneas de conexión rectas
+                splines='ortho')
 
-        dot.attr('node', shape='none', margin='0') # El nodo no tiene forma, la tabla la define
+        dot.attr('node', shape='none', margin='0')
         dot.attr('edge', color="#404040")
 
         cola_pacientes = turno_service.obtener_todos_turnos()
@@ -72,15 +71,16 @@ class GraphvizService:
             for paciente in cola_pacientes:
                 tiempo_espera = turno_service.calcular_tiempo_espera_paciente(posicion)
                 tiempo_atencion = turno_service.obtener_tiempo_atencion(paciente.especialidad)
+                # --- CÁLCULO DEL TIEMPO TOTAL ESTIMADO ---
+                tiempo_total_estimado = tiempo_espera + tiempo_atencion
                 
-                # --- NUEVO LABEL CON TABLA HTML PARA MEJOR ESTILO ---
                 label_html = f'''<
-    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" BGCOLOR="white" >
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" BGCOLOR="white">
     <TR>
         <TD COLSPAN="2" BGCOLOR="#4e79a7" ALIGN="CENTER"><FONT COLOR="white"><B>Turno #{paciente.numero_turno}</B></FONT></TD>
     </TR>
     <TR>
-        <TD ALIGN="LEFT" VALIGN="TOP"><B>Paciente:</B></TD>
+        <TD ALIGN="LEFT"><B>Paciente:</B></TD>
         <TD ALIGN="LEFT">{paciente.nombre} ({paciente.edad} años)</TD>
     </TR>
     <TR>
@@ -94,6 +94,10 @@ class GraphvizService:
     <TR>
         <TD ALIGN="LEFT"><B>T. Atención:</B></TD>
         <TD ALIGN="LEFT">{tiempo_atencion} min</TD>
+    </TR>
+    <TR>
+        <TD ALIGN="LEFT" BGCOLOR="#eef2f7"><B>T. Total Est.:</B></TD>
+        <TD ALIGN="LEFT" BGCOLOR="#eef2f7"><B>{tiempo_total_estimado} min</B></TD>
     </TR>
     </TABLE>>'''
                 
@@ -116,7 +120,10 @@ class GraphvizService:
         dot.attr('graph', bgcolor="#f4f4f4")
         dot.attr('node', shape='none', margin='0')
 
-        # --- NUEVO LABEL CON TABLA HTML PARA MEJOR ESTILO ---
+        # Se calcula el tiempo total sumando el tiempo en cola y el de atención.
+        tiempo_total = tiempo_espera + tiempo_atencion
+
+        # --- LABEL ACTUALIZADO CON TIEMPO TOTAL ---
         label_html = f'''<
     <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8" BGCOLOR="white">
     <TR>
@@ -142,6 +149,10 @@ class GraphvizService:
         <TD ALIGN="LEFT" BGCOLOR="#e9f5e9"><B>Tiempo de atención:</B></TD>
         <TD ALIGN="LEFT" BGCOLOR="#e9f5e9">{tiempo_atencion} min</TD>
     </TR>
+    <TR>
+        <TD ALIGN="LEFT" BGCOLOR="#d4edda"><B>Tiempo Total:</B></TD>
+        <TD ALIGN="LEFT" BGCOLOR="#d4edda"><B>{tiempo_total} min</B></TD>
+    </TR>
     </TABLE>>'''
         
         dot.node('turno_atendido', label_html)
@@ -154,7 +165,6 @@ class GraphvizService:
         
         base_filename = f"ficha_T{paciente.numero_turno}_{nombre_limpio}"
         return self._renderizar_grafico(dot, base_filename)
-        
 
     def generar_grafico_estadisticas(self, reporte: ReporteEstadisticas):
         """Genera un gráfico de estadísticas usando el objeto ReporteEstadisticas."""
