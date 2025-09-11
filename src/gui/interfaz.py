@@ -1,3 +1,4 @@
+# src/gui/interfaz.py
 """
 Módulo que implementa la interfaz gráfica del sistema de turnos médicos usando Tkinter.
 """
@@ -10,9 +11,11 @@ import threading
 
 from services.turno_service import TurnoService
 from services.graphviz_service import GraphvizService
+from models.reporte import ReporteEstadisticas
 from utils.constantes import (
     VENTANA_TITULO, VENTANA_ANCHO, VENTANA_ALTO,
-    ESPECIALIDADES, COLOR_FONDO, COLOR_PRIMARIO, COLOR_SECUNDARIO,
+    ESPECIALIDAD_1, ESPECIALIDAD_2, ESPECIALIDAD_3, ESPECIALIDAD_4,
+    COLOR_FONDO, COLOR_PRIMARIO, COLOR_SECUNDARIO,
     COLOR_EXITO, COLOR_ERROR, FUENTE_TITULO, FUENTE_NORMAL,
     MENSAJE_COLA_VACIA, MENSAJE_PACIENTE_ATENDIDO,
     MENSAJE_ERROR_CAMPOS, MENSAJE_ERROR_EDAD
@@ -29,20 +32,17 @@ class InterfazTurnos:
         self.turno_service = TurnoService()
         self.graphviz_service = GraphvizService()
         
-        # Crear ventana principal
         self.root = tk.Tk()
         self.root.title(VENTANA_TITULO)
         self.root.geometry(f"{VENTANA_ANCHO}x{VENTANA_ALTO}")
         self.root.configure(bg=COLOR_FONDO)
         self.root.resizable(True, True)
         
-        # Configurar estilos de la aplicación
         self._configurar_estilos()
         
-        # Variables de la interfaz
         self.nombre_var = tk.StringVar()
         self.edad_var = tk.StringVar()
-        self.especialidad_var = tk.StringVar(value=ESPECIALIDADES[0])
+        self.especialidad_var = tk.StringVar(value=ESPECIALIDAD_1)
         
         self._crear_widgets()
         self._actualizar_display()
@@ -142,14 +142,16 @@ class InterfazTurnos:
             row=1, column=0, sticky=tk.W, padx=(0, 10), pady=5)
         
         especialidad_combo = ttk.Combobox(campos_frame, textvariable=self.especialidad_var,
-                                          values=ESPECIALIDADES, state="readonly",
-                                          font=FUENTE_NORMAL, width=25)
+                                          values=(ESPECIALIDAD_1, ESPECIALIDAD_2, ESPECIALIDAD_3, ESPECIALIDAD_4),
+                                          state="readonly", font=FUENTE_NORMAL, width=25)
         especialidad_combo.grid(row=1, column=1, sticky="ew", pady=5)
-        
-        # Botón registrar
+        # Botón registrar        
         registrar_btn = ttk.Button(campos_frame, text="Registrar Turno",
-                                   command=self._registrar_turno, style='Primary.TButton')
+                                     command=self._registrar_turno, style='Primary.TButton')
         registrar_btn.grid(row=1, column=2, columnspan=2, sticky=tk.E, padx=(10, 0), pady=5)
+        
+
+
     
     def _crear_botones_principales(self, parent):
         """Crea los botones principales de acción."""
@@ -233,7 +235,7 @@ class InterfazTurnos:
             
             self.nombre_var.set("")
             self.edad_var.set("")
-            self.especialidad_var.set(ESPECIALIDADES[0])
+            self.especialidad_var.set(ESPECIALIDAD_1)
             
             # Actualiza los paneles de texto
             self._actualizar_display()
@@ -388,10 +390,10 @@ class InterfazTurnos:
 
     def _generar_grafico(self, silencioso=False):
         """
-        (CORREGIDO) Genera el gráfico. Ya no se detiene si la cola está vacía
+        () Genera el gráfico. Ya no se detiene si la cola está vacía
         y maneja el modo silencioso para evitar pop-ups.
         """
-        # (CORREGIDO) El chequeo de cola vacía se eliminó de aquí
+        # () El chequeo de cola vacía se eliminó de aquí
         # para permitir que se genere el gráfico de "Cola Vacía".
         try:
             if not self.graphviz_service.verificar_graphviz_instalado():
@@ -402,7 +404,7 @@ class InterfazTurnos:
                 return
             
             def generar_en_hilo():
-                # Esta llamada ahora funciona correctamente incluso si la cola está vacía
+                
                 archivo_imagen = self.graphviz_service.generar_grafico_cola(self.turno_service)
                 
                 if archivo_imagen and os.path.exists(archivo_imagen):
@@ -423,58 +425,59 @@ class InterfazTurnos:
                 messagebox.showerror("Error", f"Error al generar gráfico: {str(e)}")
 
     def _mostrar_estadisticas(self):
-        """Muestra estadísticas detalladas del sistema."""
+        """
+        Crea una ventana separada para mostrar estadísticas y su gráfico.
+
+        Args:
+            estadisticas (ReporteEstadisticas): El objeto con los datos a mostrar.
+            archivo_imagen (str, optional): La ruta a la imagen del gráfico. Defaults to None.
+        """
         try:
             estadisticas = self.turno_service.obtener_estadisticas()
             
-            # --- LÓGICA RESTAURADA PARA GENERAR GRÁFICO ---
+            # Genera el gráfico primero
             archivo_stats = None
             if self.graphviz_service.verificar_graphviz_instalado() and self.turno_service.hay_turnos_pendientes():
-                # Generar el gráfico solo si hay datos que mostrar
                 archivo_stats = self.graphviz_service.generar_grafico_estadisticas(estadisticas)
 
-            # Se pasa el archivo del gráfico (si se creó) a la ventana
+            # Llama a la ventana una sola vez, pasándole los datos y el gráfico (si existe)
             self._ventana_estadisticas(estadisticas, archivo_stats)
-            # --- FIN DE LA LÓGICA RESTAURADA ---
-                
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar estadísticas: {str(e)}")
+
 
     def _ventana_estadisticas(self, estadisticas, archivo_imagen=None):
         """Crea una ventana separada para mostrar estadísticas y su gráfico."""
         stats_window = tk.Toplevel(self.root)
         stats_window.title("Estadísticas del Sistema")
-        stats_window.geometry("500x600") # Aumentamos el tamaño para el gráfico
+        stats_window.geometry("500x600")
         stats_window.resizable(True, True)
         stats_window.configure(bg=COLOR_FONDO)
         
         main_frame = ttk.Frame(stats_window, style='TFrame')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        ttk.Label(main_frame, text="Estadísticas del Sistema", 
-                  style='Titulo.TLabel').pack(pady=(0, 15))
+        ttk.Label(main_frame, text="Estadísticas del Sistema", style='Titulo.TLabel').pack(pady=(0, 15))
         
         info_frame = ttk.LabelFrame(main_frame, text="Resumen General", padding=10)
         info_frame.pack(fill=tk.X, pady=(0, 10), anchor='n')
         
-        total_pacientes = estadisticas.get('total_pacientes', 0)
-        tiempo_total = estadisticas.get('tiempo_total_estimado', 0)
-        
-        ttk.Label(info_frame, text=f"Total de pacientes en cola: {total_pacientes}").pack(anchor=tk.W)
-        ttk.Label(info_frame, text=f"Tiempo total de espera estimado: {tiempo_total} minutos").pack(anchor=tk.W)
+        ttk.Label(info_frame, text=f"Total de pacientes en cola: {estadisticas.total_pacientes}").pack(anchor=tk.W)
+        ttk.Label(info_frame, text=f"Tiempo total de espera estimado: {estadisticas.tiempo_total_estimado} minutos").pack(anchor=tk.W)
         
         esp_frame = ttk.LabelFrame(main_frame, text="Distribución por Especialidad", padding=10)
         esp_frame.pack(fill=tk.X, pady=(0, 10), anchor='n')
         
-        especialidades_stats = estadisticas.get('especialidades', {})
-        if especialidades_stats:
-            for especialidad, cantidad in especialidades_stats.items():
-                texto = f"{especialidad}: {cantidad} paciente(s)"
-                ttk.Label(esp_frame, text=texto).pack(anchor=tk.W)
-        else:
+        nodo_actual = estadisticas.conteo_especialidades
+        if nodo_actual is None:
             ttk.Label(esp_frame, text="No hay pacientes en cola.").pack(anchor=tk.W)
+        else:
+            while nodo_actual is not None:
+                texto = f"{nodo_actual.especialidad}: {nodo_actual.cantidad} paciente(s)"
+                ttk.Label(esp_frame, text=texto).pack(anchor=tk.W)
+                nodo_actual = nodo_actual.siguiente
 
-        # --- CÓDIGO RESTAURADO PARA MOSTRAR LA IMAGEN ---
+        # --- CÓDIGO PARA MOSTRAR LA IMAGEN ---
         if archivo_imagen and os.path.exists(archivo_imagen):
             try:
                 img_frame = ttk.LabelFrame(main_frame, text="Gráfico de Distribución", padding=10)
@@ -486,7 +489,9 @@ class InterfazTurnos:
                 
                 imagen_label = ttk.Label(img_frame, image=foto, style="TLabel")
                 imagen_label.pack(pady=5)
-                imagen_label.image = foto # Mantener referencia
+                
+                imagen_label.image = foto
+                
             except Exception as e:
                 print(f"Error al cargar imagen de estadísticas: {e}")
                 error_label = ttk.Label(main_frame, text="No se pudo cargar el gráfico.", style="TLabel")
@@ -520,27 +525,30 @@ class InterfazTurnos:
         if not self.turno_service.hay_turnos_pendientes():
             self.cola_text.insert(tk.END, MENSAJE_COLA_VACIA)
         else:
-            pacientes = self.turno_service.obtener_todos_turnos()
+            # Se obtiene el objeto Cola iterable, NO una lista.
+            pacientes_en_cola = self.turno_service.obtener_todos_turnos()
             self.cola_text.insert(tk.END, "COLA DE TURNOS ACTUAL\n", ('titulo',))
             self.cola_text.insert(tk.END, "=" * 50 + "\n\n")
             
-            for i, paciente in enumerate(pacientes):
-                tiempo_espera = self.turno_service.calcular_tiempo_espera_paciente(i)
+            # Se itera directamente sobre la cola y se usa un contador manual.
+            posicion = 0
+            for paciente in pacientes_en_cola:
+                # Se pasa la posición (el contador) al método de cálculo.
+                tiempo_espera = self.turno_service.calcular_tiempo_espera_paciente(posicion)
                 
-                posicion_texto = "SIGUIENTE" if i == 0 else f"Posición {i + 1}"
-                tag = 'siguiente' if i == 0 else 'normal'
+                posicion_texto = "SIGUIENTE" if posicion == 0 else f"Posición {posicion + 1}"
+                tag = 'siguiente' if posicion == 0 else 'normal'
 
                 info_paciente = (
                     f"[{posicion_texto}] {paciente.nombre} ({paciente.edad} años) - {paciente.especialidad}\n"
                     f"   └─ Tiempo de espera estimado: {tiempo_espera} min\n\n"
                 )
                 self.cola_text.insert(tk.END, info_paciente, (tag,))
+                posicion += 1 # Se incrementa el contador manualmente.
         
-        # Aplicar tags de formato
         self.cola_text.tag_config('titulo', font=FUENTE_TITULO, foreground=COLOR_PRIMARIO)
         self.cola_text.tag_config('siguiente', font=(FUENTE_NORMAL[0], FUENTE_NORMAL[1], 'bold'), foreground=COLOR_EXITO)
         self.cola_text.tag_config('normal', font=FUENTE_NORMAL)
-
         self.cola_text.configure(state=tk.DISABLED)
 
     def _actualizar_info_display(self):
@@ -548,21 +556,27 @@ class InterfazTurnos:
         self.info_text.configure(state=tk.NORMAL)
         self.info_text.delete(1.0, tk.END)
         
+
+        # 1. `obtener_estadisticas` ahora devuelve un objeto `ReporteEstadisticas`.
         estadisticas = self.turno_service.obtener_estadisticas()
         
         self.info_text.insert(tk.END, "INFORMACIÓN GENERAL\n", ('titulo',))
         self.info_text.insert(tk.END, "=" * 50 + "\n\n")
-        self.info_text.insert(tk.END, f"› Total de turnos pendientes: {estadisticas['total_pacientes']}\n")
-        self.info_text.insert(tk.END, f"› Tiempo total estimado: {estadisticas['tiempo_total_estimado']} minutos\n\n")
+        # 2. Se accede a los datos como atributos, no como claves de diccionario.
+        self.info_text.insert(tk.END, f"› Total de turnos pendientes: {estadisticas.total_pacientes}\n")
+        self.info_text.insert(tk.END, f"› Tiempo total estimado: {estadisticas.tiempo_total_estimado} minutos\n\n")
         
         self.info_text.insert(tk.END, "PACIENTES POR ESPECIALIDAD\n", ('subtitulo',))
         self.info_text.insert(tk.END, "-" * 30 + "\n")
         
-        for especialidad in ESPECIALIDADES:
+        # 3. Se itera sobre la lista enlazada de Nodos de estadística.
+        nodo_actual = estadisticas.conteo_especialidades
+        while nodo_actual is not None:
+            especialidad = nodo_actual.especialidad
+            cantidad = nodo_actual.cantidad
             tiempo = self.turno_service.obtener_tiempo_atencion(especialidad)
-            cantidad = estadisticas['especialidades'].get(especialidad, 0)
-            self.info_text.insert(tk.END, 
-                f"› {especialidad}: {cantidad} paciente(s) ({tiempo} min c/u)\n")
+            self.info_text.insert(tk.END, f"› {especialidad}: {cantidad} paciente(s) ({tiempo} min c/u)\n")
+            nodo_actual = nodo_actual.siguiente
         
         self.info_text.insert(tk.END, f"\n{'=' * 50}\n\n")
         siguiente = self.turno_service.ver_siguiente_paciente()
@@ -573,15 +587,13 @@ class InterfazTurnos:
         if siguiente:
             self.info_text.insert(tk.END, f"› {siguiente}\n", ('siguiente',))
             tiempo_espera_actual = siguiente.tiempo_espera_actual()
-            self.info_text.insert(tk.END, f"  Tiempo esperando: {tiempo_espera_actual} minutos\n")
+            self.info_text.insert(tk.END, f"   Tiempo esperando: {tiempo_espera_actual} minutos\n")
         else:
             self.info_text.insert(tk.END, "› Ninguno. La cola está vacía.\n")
         
-        # Aplicar tags
         self.info_text.tag_config('titulo', font=FUENTE_TITULO, foreground=COLOR_PRIMARIO)
         self.info_text.tag_config('subtitulo', font=(FUENTE_NORMAL[0], FUENTE_NORMAL[1], 'bold'), foreground=COLOR_PRIMARIO)
         self.info_text.tag_config('siguiente', font=(FUENTE_NORMAL[0], FUENTE_NORMAL[1], 'bold'), foreground=COLOR_EXITO)
-
         self.info_text.configure(state=tk.DISABLED)
 
     def ejecutar(self):

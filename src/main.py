@@ -21,7 +21,7 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 
-# Agregar el directorio actual al path para imports locales
+# Agregar el directorio del proyecto al path para imports locales
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
@@ -29,63 +29,57 @@ try:
     from utils.constantes import VENTANA_TITULO
 except ImportError as e:
     print(f"Error al importar módulos: {e}")
-    print("Asegúrese de que la estructura de archivos sea correcta.")
+    print("Asegúrese de que la estructura de archivos sea correcta y esté en el directorio 'src'.")
     sys.exit(1)
 
 
 # ============================
-#   VERIFICACIÓN DEPENDENCIAS
+#  VERIFICACIÓN DEPENDENCIAS
 # ============================
 
 def verificar_dependencias():
     """
-    Verifica que las dependencias necesarias estén instaladas.
+    Verifica que las dependencias necesarias estén instaladas,
+    sin utilizar listas u otras estructuras de datos nativas.
     
     Returns:
-        bool: True si todas las dependencias están disponibles.
+        bool: True si las dependencias esenciales están disponibles.
     """
-    dependencias_faltantes = []
-    
-    # Tkinter (incluido en Python por defecto)
+    # Tkinter (esencial)
     try:
-        import tkinter  # noqa: F401
+        import tkinter
     except ImportError:
-        dependencias_faltantes.append("tkinter")
+        print("\n ERROR: Falta la dependencia 'tkinter'.")
+        print("Tkinter es parte de la instalación estándar de Python. Verifique su instalación.")
+        return False
     
-    # PIL / Pillow (para manejo de imágenes)
+    # PIL / Pillow (esencial para la GUI si usa imágenes)
     try:
-        from PIL import Image, ImageTk  # noqa: F401
+        from PIL import Image, ImageTk
     except ImportError:
-        dependencias_faltantes.append("Pillow")
+        print("\n ERROR: Falta la dependencia 'Pillow'.")
+        print("Instálela con el comando: pip install Pillow")
+        return False
     
     # Graphviz (opcional, recomendado para visualización)
     try:
-        import graphviz  # noqa: F401
+        import graphviz
     except ImportError:
-        print("Advertencia: Graphviz no está instalado.")
-        print("La visualización gráfica no estará disponible.")
-        print("Para instalar: pip install graphviz")
-    
-    if dependencias_faltantes:
-        print("\nERROR: Dependencias faltantes:")
-        for dep in dependencias_faltantes:
-            print(f"  - {dep}")
-        print("\nInstale las dependencias con:")
-        if "Pillow" in dependencias_faltantes:
-            print("  pip install Pillow")
-        return False
+        print("\n Advertencia: Graphviz no está instalado.")
+        print("La visualización gráfica de la cola no estará disponible.")
+        print("Para instalarlo, use: pip install graphviz")
     
     return True
 
 
 # ============================
-#   INFORMACIÓN DEL SISTEMA
+#  INFORMACIÓN DEL SISTEMA
 # ============================
 
 def mostrar_info_sistema():
     """Muestra información general del sistema en la consola."""
     print("=" * 60)
-    print(f"           {VENTANA_TITULO}")
+    print(f"         {VENTANA_TITULO}")
     print("=" * 60)
     print("Características del sistema:")
     print("• Cola dinámica implementada con nodos enlazados")
@@ -107,17 +101,17 @@ def main():
     Inicializa y ejecuta la aplicación de turnos médicos.
     """
     try:
-        # Mostrar información del sistema
+        # Mostrar información del sistema en consola
         mostrar_info_sistema()
         
-        # Verificar dependencias
+        # Verificar dependencias antes de continuar
         print("Verificando dependencias...")
         if not verificar_dependencias():
-            print("No se puede iniciar la aplicación debido a dependencias faltantes.")
+            print("\nNo se puede iniciar la aplicación debido a dependencias faltantes.")
             input("Presione Enter para salir...")
             return
         
-        print("Todas las dependencias están disponibles.")
+        print("Todas las dependencias esenciales están disponibles.")
         print("Iniciando aplicación...")
         print("-" * 60)
         
@@ -129,21 +123,22 @@ def main():
         print("\n\nAplicación interrumpida por el usuario.")
         
     except Exception as e:
-        print(f"\nError fatal en la aplicación: {e}")
+        print(f"\n Error fatal en la aplicación: {e}")
         
-        # Mostrar error en ventana emergente si es posible
+        # Intentar mostrar el error en una ventana emergente
         try:
             root = tk.Tk()
-            root.withdraw()  # Ocultar ventana principal
+            root.withdraw()  # Ocultar la ventana principal vacía
             messagebox.showerror(
                 "Error Fatal", 
-                f"Error al ejecutar la aplicación:\n\n{str(e)}\n\n"
+                f"Ocurrió un error inesperado al ejecutar la aplicación:\n\n{str(e)}\n\n"
                 "Consulte la consola para más detalles."
             )
             root.destroy()
         except Exception:
-            pass  # Si no se puede mostrar la ventana, solo imprimir en consola
-        
+            # Si ni siquiera Tkinter funciona, la consola es la única opción
+            pass
+            
     finally:
         print("\n" + "=" * 60)
         print("Aplicación finalizada.")
@@ -152,7 +147,7 @@ def main():
 
 
 # ============================
-#     PUNTO DE ENTRADA
+#      PUNTO DE ENTRADA
 # ============================
 
 if __name__ == "__main__":

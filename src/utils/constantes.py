@@ -1,22 +1,26 @@
+# En src/utils/constantes.py
 """
 Módulo que define las constantes utilizadas en el sistema de turnos médicos.
 """
 
 # Tiempos de atención por especialidad (en minutos)
-TIEMPOS_ATENCION = {
-    "Medicina General": 10,
-    "Pediatría": 15,
-    "Ginecología": 20,
-    "Dermatología": 25
-}
+ESPECIALIDAD_1 = "Medicina General"
+TIEMPO_ATENCION_1 = 10
+
+ESPECIALIDAD_2 = "Pediatría"
+TIEMPO_ATENCION_2 = 15
+
+ESPECIALIDAD_3 = "Ginecología"
+TIEMPO_ATENCION_3 = 20
+
+ESPECIALIDAD_4 = "Dermatología"
+TIEMPO_ATENCION_4 = 25
 
 # Lista de especialidades disponibles
-ESPECIALIDADES = [
-    "Medicina General",
-    "Pediatría", 
-    "Ginecología",
-    "Dermatología"
-]
+ESPECIALIDAD_1 = "Medicina General"
+ESPECIALIDAD_2 = "Pediatría"
+ESPECIALIDAD_3 = "Ginecología"
+ESPECIALIDAD_4 = "Dermatología"
 
 # Configuración de la interfaz gráfica
 VENTANA_TITULO = "Sistema de Turnos Médicos"

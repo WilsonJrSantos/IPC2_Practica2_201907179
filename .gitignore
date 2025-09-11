@@ -1,0 +1,37 @@
+# ==================================
+#  Python
+# ==================================
+# Archivos compilados y caché
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+.env/
+
+# Archivos de distribución y build
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ==================================
+#  Configuración de IDEs y Editores
+# ==================================
+# Visual Studio Code
+.vscode/
+
+# ==================================
+#  Archivos del Sistema Operativo
+# ==================================
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+
